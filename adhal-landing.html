@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ADHAL — Hook-and-loop that lets go when you tell it to</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink: '#0E1310',
+          paper: '#F7F6F1',
+          forest: '#24402F',
+          moss: '#6F8F6C',
+          signal: '#A8C97F',
+        },
+        fontFamily: {
+          display: ['Fraunces', 'serif'],
+          body: ['Inter', 'sans-serif'],
+          mono: ['IBM Plex Mono', 'monospace'],
+        },
+      }
+    }
+  }
+</script>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { background-color: #F7F6F1; }
+
+  .hairline { border-color: rgba(14,19,16,0.14); }
+
+  /* Hook mechanism */
+  .hook-group { transform-origin: 50% 100%; transition: transform 700ms cubic-bezier(.4,0,.2,1); }
+  .hook-lying .hook-group { transform: rotate(78deg); }
+  .hook-tip { transition: fill 500ms ease; }
+  .hook-lying .hook-tip { fill: #6F8F6C; }
+  .hook-standing .hook-tip { fill: #A8C97F; }
+
+  .loop-fiber { transition: stroke 500ms ease, opacity 500ms ease; }
+  .hook-standing .loop-fiber.caught { stroke: #24402F; opacity: 1; }
+  .hook-lying .loop-fiber.caught { opacity: 0.35; }
+
+  .grip-badge { transition: opacity 400ms ease, transform 400ms ease; }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(14px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .entrance > * { animation: fadeUp 700ms ease both; }
+  .entrance > *:nth-child(2) { animation-delay: 90ms; }
+  .entrance > *:nth-child(3) { animation-delay: 180ms; }
+  .entrance > *:nth-child(4) { animation-delay: 270ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hook-group { transition: none; }
+    .entrance > * { animation: none; }
+  }
+
+  .num-rule::before {
+    content: attr(data-num);
+    font-family: 'IBM Plex Mono', monospace;
+    display: block;
+  }
+</style>
+</head>
+<body class="font-body text-ink antialiased">
+
+<div id="app">
+
+  <!-- NAV -->
+  <header class="border-b hairline sticky top-0 z-30 bg-paper/90 backdrop-blur">
+    <div class="max-w-6xl mx-auto px-6 md:px-10 h-16 flex items-center justify-between">
+      <span class="font-display text-xl tracking-tight">ADHAL</span>
+      <nav class="hidden md:flex items-center gap-8 text-sm text-ink/70">
+        <a href="#how" class="hover:text-ink transition-colors">How it works</a>
+        <a href="#why" class="hover:text-ink transition-colors">Why it matters</a>
+        <a href="#brands" class="hover:text-ink transition-colors">For brands</a>
+      </nav>
+      <a href="#notify" class="text-sm font-medium px-4 py-2 rounded-full bg-forest text-paper hover:bg-ink transition-colors">Notify me</a>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="max-w-6xl mx-auto px-6 md:px-10 pt-16 pb-20 md:pt-24 md:pb-28 grid md:grid-cols-2 gap-14 items-center">
+    <div class="entrance">
+      <p class="text-sm text-moss font-medium mb-5">A fastener for adaptive fashion brands</p>
+      <h1 class="font-display text-[2.6rem] leading-[1.08] md:text-6xl md:leading-[1.05] text-ink">
+        Velcro that lets go<br>when you tell it to.
+      </h1>
+      <p class="mt-6 text-lg text-ink/75 max-w-md leading-relaxed">
+        ADHAL is a hook-and-loop fastener with a switch built in. A small shear motion
+        stands the hooks up to grip, then lays them flat to release &mdash; no tearing at
+        the fabric, no wrestling with a closure that won't let go.
+      </p>
+
+      <form @submit.prevent="subscribe" class="mt-9 max-w-md">
+        <label for="hero-email" class="block text-sm text-ink/60 mb-2">Get an email when ADHAL is available</label>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input
+            id="hero-email"
+            v-model="email"
+            type="email"
+            required
+            placeholder="you@example.com"
+            class="flex-1 px-4 py-3 rounded-lg border hairline bg-white text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-forest/40"
+          />
+          <button
+            type="submit"
+            class="px-6 py-3 rounded-lg bg-forest text-paper font-medium hover:bg-ink transition-colors whitespace-nowrap"
+          >
+            Notify me
+          </button>
+        </div>
+        <p v-if="subscribed" class="mt-3 text-sm text-forest">You're on the list &mdash; we'll email {{ lastEmail }} when it's ready.</p>
+        <p v-else class="mt-3 text-sm text-ink/45">No spam. One email, when it launches.</p>
+      </form>
+    </div>
+
+    <!-- Mechanism diagram -->
+    <div class="entrance">
+      <div :class="['rounded-2xl border hairline bg-white p-8 md:p-10', engaged ? 'hook-standing' : 'hook-lying']">
+        <svg viewBox="0 0 320 200" class="w-full h-auto" role="img" aria-label="Diagram of the hook and loop mechanism">
+          <!-- loop fabric base -->
+          <rect x="10" y="150" width="300" height="14" rx="3" fill="#EDEBE3" />
+          <g stroke="#B9C4B4" stroke-width="2" fill="none">
+            <path class="loop-fiber caught" d="M40,150 q6,-14 0,-24" />
+            <path class="loop-fiber" d="M70,150 q6,-14 0,-24" />
+            <path class="loop-fiber caught" d="M100,150 q6,-14 0,-24" />
+            <path class="loop-fiber" d="M130,150 q6,-14 0,-24" />
+            <path class="loop-fiber caught" d="M160,150 q6,-14 0,-24" />
+            <path class="loop-fiber" d="M190,150 q6,-14 0,-24" />
+            <path class="loop-fiber caught" d="M220,150 q6,-14 0,-24" />
+            <path class="loop-fiber" d="M250,150 q6,-14 0,-24" />
+            <path class="loop-fiber caught" d="M280,150 q6,-14 0,-24" />
+          </g>
+
+          <!-- hook base bar -->
+          <rect x="10" y="112" width="300" height="14" rx="3" fill="#24402F" />
+
+          <!-- hooks -->
+          <g v-for="(x,i) in hookPositions" :key="i" class="hook-group" :style="{transformOrigin: x+'px 112px'}">
+            <path :d="'M'+x+',112 v-30'" stroke="#24402F" stroke-width="4" stroke-linecap="round" />
+            <circle class="hook-tip" :cx="x" cy="82" r="5" />
+          </g>
+        </svg>
+
+        <div class="mt-6 flex items-center justify-between">
+          <div class="font-mono text-xs text-ink/60">
+            <span>ANGLE</span>
+            <span class="ml-2 text-ink">{{ engaged ? '90°' : '0°' }}</span>
+          </div>
+          <span class="grip-badge font-mono text-xs px-2.5 py-1 rounded-full" :class="engaged ? 'bg-signal/30 text-forest' : 'bg-ink/5 text-ink/40'">
+            {{ engaged ? 'LOCKED' : 'RELEASED' }}
+          </span>
+        </div>
+
+        <button
+          @click="engaged = !engaged"
+          class="mt-6 w-full py-3 rounded-lg border hairline font-medium hover:bg-ink hover:text-paper transition-colors"
+        >
+          {{ engaged ? 'Shear to release' : 'Shear to engage' }}
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS -->
+  <section class="border-y hairline bg-white">
+    <div class="max-w-6xl mx-auto px-6 md:px-10 py-12 grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-ink/10">
+      <div class="py-6 sm:py-0 sm:px-8 first:pl-0">
+        <p class="font-mono text-3xl text-forest">1.3B</p>
+        <p class="mt-2 text-sm text-ink/60">people worldwide live with a disability &mdash; about 16% of the global population</p>
+      </div>
+      <div class="py-6 sm:py-0 sm:px-8">
+        <p class="font-mono text-3xl text-forest">528M</p>
+        <p class="mt-2 text-sm text-ink/60">affected by grip-related conditions such as arthritis</p>
+      </div>
+      <div class="py-6 sm:py-0 sm:px-8">
+        <p class="font-mono text-3xl text-forest">$18.9B → $30.3B</p>
+        <p class="mt-2 text-sm text-ink/60">projected growth of the adaptive clothing market</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section id="why" class="max-w-6xl mx-auto px-6 md:px-10 py-24 grid md:grid-cols-2 gap-14">
+    <div>
+      <h2 class="font-display text-3xl md:text-[2.4rem] leading-tight">Ordinary velcro fights the person using it.</h2>
+    </div>
+    <div class="space-y-6 text-ink/75 leading-relaxed">
+      <p>
+        Adaptive clothing swapped zippers and buttons for magnets or velcro to help people
+        with limited dexterity get dressed. Both closures brought their own problems. Magnets
+        can interfere with medical devices. Standard hook-and-loop catches on any fabric it
+        brushes against, wears down with every open-and-close, and often takes real force to
+        pull apart &mdash; force that many of the people relying on it don't have to spare.
+      </p>
+      <p>
+        ADHAL keeps the reliability of hook-and-loop and removes what makes it frustrating:
+        the hooks only grip when they're mechanically told to.
+      </p>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how" class="bg-ink text-paper">
+    <div class="max-w-6xl mx-auto px-6 md:px-10 py-24">
+      <h2 class="font-display text-3xl md:text-[2.4rem] mb-14 max-w-lg">Three positions, one motion.</h2>
+      <div class="grid md:grid-cols-3 gap-10">
+        <div class="num-rule" data-num="01" style="--tw-text-opacity:1">
+          <p class="font-mono text-signal mb-4">01</p>
+          <h3 class="font-display text-xl mb-3">Press</h3>
+          <p class="text-paper/65 leading-relaxed text-sm">A shear force is applied along the base strip, shifting each hook's root sideways.</p>
+        </div>
+        <div>
+          <p class="font-mono text-signal mb-4">02</p>
+          <h3 class="font-display text-xl mb-3">Stand</h3>
+          <p class="text-paper/65 leading-relaxed text-sm">The shift pivots the hooks upright, where they catch the loop fibers and hold full grip.</p>
+        </div>
+        <div>
+          <p class="font-mono text-signal mb-4">03</p>
+          <h3 class="font-display text-xl mb-3">Release on command</h3>
+          <p class="text-paper/65 leading-relaxed text-sm">Shear the other way and the hooks lie flat again. They let go cleanly &mdash; no peeling, no snagged threads.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FOR BRANDS -->
+  <section id="brands" class="max-w-6xl mx-auto px-6 md:px-10 py-24 grid md:grid-cols-2 gap-14 items-start">
+    <div>
+      <p class="text-sm text-moss font-medium mb-4">B2B</p>
+      <h2 class="font-display text-3xl md:text-[2.4rem] leading-tight">Built to be sewn into<br>someone else's clothing.</h2>
+      <p class="mt-6 text-ink/75 leading-relaxed max-w-md">
+        ADHAL isn't a garment &mdash; it's a component. We supply adaptive and accommodative
+        fashion brands with a fastener their design teams can drop into existing patterns,
+        so the brand keeps the relationship with its customer and we handle the mechanics.
+      </p>
+    </div>
+    <ul class="space-y-5">
+      <li class="border-b hairline pb-5">
+        <p class="font-medium">Bulk and licensed supply</p>
+        <p class="text-sm text-ink/60 mt-1">Ordered at production scale, or licensed for a brand's own manufacturing.</p>
+      </li>
+      <li class="border-b hairline pb-5">
+        <p class="font-medium">Fits existing patterns</p>
+        <p class="text-sm text-ink/60 mt-1">Sized and mounted like conventional hook-and-loop tape.</p>
+      </li>
+      <li class="border-b hairline pb-5">
+        <p class="font-medium">A longer usable life</p>
+        <p class="text-sm text-ink/60 mt-1">Because it isn't gripping fabric it shouldn't, the fastener stays effective for more cycles.</p>
+      </li>
+      <li>
+        <p class="font-medium">One less accessibility gap to solve</p>
+        <p class="text-sm text-ink/60 mt-1">A ready answer for brands building toward dignity, comfort, and independence for their customers.</p>
+      </li>
+    </ul>
+  </section>
+
+  <!-- NOTIFY -->
+  <section id="notify" class="bg-forest text-paper">
+    <div class="max-w-3xl mx-auto px-6 md:px-10 py-24 text-center">
+      <h2 class="font-display text-3xl md:text-4xl mb-4">Be first to know when ADHAL ships.</h2>
+      <p class="text-paper/75 max-w-md mx-auto mb-9">We're in feasibility and prototyping now. Leave your email and we'll reach out when there's a fastener to try.</p>
+
+      <form @submit.prevent="subscribe" class="max-w-md mx-auto">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input
+            v-model="email"
+            type="email"
+            required
+            placeholder="you@example.com"
+            class="flex-1 px-4 py-3 rounded-lg bg-paper text-ink placeholder:text-ink/40 focus:outline-none focus:ring-2 focus:ring-signal"
+          />
+          <button
+            type="submit"
+            class="px-6 py-3 rounded-lg bg-signal text-forest font-semibold hover:bg-paper transition-colors whitespace-nowrap"
+          >
+            Notify me
+          </button>
+        </div>
+        <p v-if="subscribed" class="mt-4 text-sm text-signal">You're on the list &mdash; we'll email {{ lastEmail }} when it's ready.</p>
+      </form>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="border-t hairline">
+    <div class="max-w-6xl mx-auto px-6 md:px-10 py-10 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-ink/50">
+      <span class="font-display text-base text-ink">ADHAL</span>
+      <span class="font-mono text-xs">Feasibility stage &middot; concept in development</span>
+      <span>&copy; 2026 ADHAL</span>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+const { createApp, ref } = Vue;
+
+createApp({
+  setup() {
+    const engaged = ref(false);
+    const email = ref('');
+    const subscribed = ref(false);
+    const lastEmail = ref('');
+    const hookPositions = [40,70,100,130,160,190,220,250,280];
+
+    function subscribe() {
+      if (!email.value) return;
+      lastEmail.value = email.value;
+      subscribed.value = true;
+      email.value = '';
+    }
+
+    return { engaged, email, subscribed, lastEmail, hookPositions, subscribe };
+  }
+}).mount('#app');
+</script>
+
+</body>
+</html>
